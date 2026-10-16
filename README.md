@@ -1,9 +1,6 @@
 # 🤖 AutoGen Multi-Agent Simulator
 
-> **TAE-I Project** — Subject: Large Language Model (UNAIL411)  
-> G H Raisoni College of Engineering, Nagpur  
-> **Gaurav Gaydhane** · Roll No. 67 · Section B · Semester VII · Branch: AI  
-> Subject Teacher: Dr. Pranay Saraf
+
 
 ---
 
@@ -106,8 +103,6 @@ The entire app — HTML, CSS, and JavaScript — lives in a single self-containe
    https://<your-username>.github.io/<repo-name>/autogen-simulator.html
    ```
 
-### Netlify / Vercel
-Drag and drop the `autogen-simulator.html` file — it deploys instantly as a static site.
 
 ---
 
