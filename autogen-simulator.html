@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AutoGen Multi-Agent Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #181c24;
+    --surface2: #1e2330;
+    --surface3: #252b3b;
+    --border: #2a3045;
+    --border2: #3a4460;
+    --text: #e8eaf0;
+    --text2: #8b93a8;
+    --text3: #5a637a;
+    --accent: #5b8af0;
+    --accent-dim: #1e2d52;
+    --green: #3dd68c;
+    --green-dim: #0f3022;
+    --amber: #f0a03d;
+    --amber-dim: #3a2610;
+    --purple: #a47cf0;
+    --purple-dim: #28194a;
+    --coral: #f06b5b;
+    --coral-dim: #3a1510;
+    --teal: #3dd6c8;
+    --teal-dim: #0f2e2c;
+    --radius: 10px;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', sans-serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+  }
+  /* ── Header ── */
+  .header {
+    padding: 1.5rem 1.5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .header-top { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .logo-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+  .header h1 { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
+  .header p { font-size: 12px; color: var(--text2); margin-left: 20px; }
+  /* ── Tabs ── */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    padding: 0.75rem 1.5rem 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    padding: 6px 14px;
+    font-size: 12px;
+    font-family: var(--sans);
+    font-weight: 500;
+    color: var(--text2);
+    background: none;
+    border: none;
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+    white-space: nowrap;
+  }
+  .tab:hover { color: var(--text); background: var(--surface2); }
+  .tab.active { color: var(--accent); background: var(--bg); border: 1px solid var(--border); border-bottom: 1px solid var(--bg); }
+  /* ── Panels ── */
+  .panel { display: none; }
+  .panel.active { display: block; }
+  /* ── Task Picker ── */
+  .task-section { padding: 1.25rem 1.5rem; }
+  .section-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.75rem; }
+  .task-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .task-card {
+    padding: 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .task-card:hover { border-color: var(--border2); background: var(--surface3); }
+  .task-card.selected { border-color: var(--accent); background: var(--accent-dim); }
+  .task-card .task-icon { font-size: 18px; margin-bottom: 6px; }
+  .task-card .task-name { font-size: 12px; font-weight: 600; color: var(--text); }
+  .task-card .task-desc { font-size: 11px; color: var(--text2); margin-top: 3px; line-height: 1.4; }
+  /* ── Run Button ── */
+  .run-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: calc(100% - 3rem);
+    margin: 0 1.5rem 1.25rem;
+    padding: 11px;
+    background: var(--accent);
+    color: #fff;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .run-btn:hover { opacity: 0.9; }
+  .run-btn:active { transform: scale(0.98); }
+  .run-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  /* ── Agent Stage ── */
+  .agents-row {
+    display: flex;
+    gap: 6px;
+    padding: 0 1.5rem 1rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .agents-row::-webkit-scrollbar { display: none; }
+  .agent-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    white-space: nowrap;
+    transition: border-color 0.2s, background 0.2s;
+    flex-shrink: 0;
+  }
+  .agent-chip.speaking { border-color: var(--green); background: var(--green-dim); }
+  .agent-chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border2); transition: background 0.2s; }
+  .agent-chip.speaking .dot { background: var(--green); }
+  .agent-chip span { font-size: 11px; font-weight: 500; color: var(--text2); }
+  .agent-chip.speaking span { color: var(--green); }
+  /* ── Chat ── */
+  .chat-area {
+    padding: 0 1rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 260px;
+  }
+  .empty-chat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 240px;
+    color: var(--text3);
+    font-size: 13px;
+    gap: 8px;
+  }
+  .empty-chat svg { opacity: 0.3; }
+  .message {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    animation: fadeUp 0.25s ease;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .msg-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: var(--text3);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .msg-agent-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .msg-bubble {
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    border: 1px solid transparent;
+    position: relative;
+  }
+  .msg-bubble pre {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-top: 8px;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .msg-bubble .benchmark-tag {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+  }
+  /* Agent colors */
+  .agent-proxy   { --ac: #5b8af0; --ad: #1e2d52; }
+  .agent-planner { --ac: #a47cf0; --ad: #28194a; }
+  .agent-coder   { --ac: #3dd68c; --ad: #0f3022; }
+  .agent-critic  { --ac: #f0a03d; --ad: #3a2610; }
+  .agent-manager { --ac: #3dd6c8; --ad: #0f2e2c; }
+  .agent-proxy   .msg-bubble,
+  .agent-planner .msg-bubble,
+  .agent-coder   .msg-bubble,
+  .agent-critic  .msg-bubble,
+  .agent-manager .msg-bubble { background: var(--ad); border-color: var(--ac); }
+  .agent-proxy   .msg-agent-dot { background: #5b8af0; }
+  .agent-planner .msg-agent-dot { background: #a47cf0; }
+  .agent-coder   .msg-agent-dot { background: #3dd68c; }
+  .agent-critic  .msg-agent-dot { background: #f0a03d; }
+  .agent-manager .msg-agent-dot { background: #3dd6c8; }
+  .agent-proxy   .msg-header { color: #5b8af0; }
+  .agent-planner .msg-header { color: #a47cf0; }
+  .agent-coder   .msg-header { color: #3dd68c; }
+  .agent-critic  .msg-header { color: #f0a03d; }
+  .agent-manager .msg-header { color: #3dd6c8; }
+  /* ── Progress ── */
+  .progress-bar-wrap {
+    margin: 0 1.5rem 1rem;
+    background: var(--surface2);
+    border-radius: 4px;
+    height: 4px;
+    overflow: hidden;
+    display: none;
+  }
+  .progress-bar-wrap.visible { display: block; }
+  .progress-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px;
+    width: 0%;
+    transition: width 0.5s ease;
+  }
+  /* ── Benchmark Panel ── */
+  .bench-grid { padding: 1rem 1.5rem; display: flex; flex-direction: column; gap: 10px; }
+  .bench-card {
+    padding: 12px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .bench-card .bench-name {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .bench-pill {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+  .bench-card .bench-desc { font-size: 12px; color: var(--text2); line-height: 1.55; }
+  .bench-bar-row { margin-top: 8px; display: flex; align-items: center; gap: 8px; }
+  .bench-bar-bg { flex: 1; height: 3px; background: var(--border); border-radius: 2px; }
+  .bench-bar-fg { height: 3px; border-radius: 2px; }
+  .bench-bar-label { font-size: 10px; color: var(--text2); min-width: 28px; text-align: right; }
+  /* ── Architecture Panel ── */
+  .arch-panel { padding: 1.25rem 1.5rem; }
+  .arch-node {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .arch-node:last-child { border-bottom: none; }
+  .arch-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .arch-node-info .arch-node-name { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .arch-node-info .arch-node-desc { font-size: 12px; color: var(--text2); line-height: 1.5; }
+  /* ── Typing indicator ── */
+  .typing-dots { display: inline-flex; gap: 3px; vertical-align: middle; }
+  .typing-dots span {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--text3);
+    animation: blink 1.2s infinite;
+  }
+  .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
+  /* ── Scrollable chat container ── */
+  .chat-scroll { max-height: 460px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+  /* ── Result Banner ── */
+  .result-banner {
+    margin: 0 1.5rem 1rem;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    background: var(--green-dim);
+    border: 1px solid var(--green);
+    font-size: 12px;
+    color: var(--green);
+    font-weight: 500;
+    display: none;
+    align-items: center;
+    gap: 8px;
+  }
+  .result-banner.visible { display: flex; }
+  /* ── Reset ── */
+  .reset-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: calc(100% - 3rem);
+    margin: 0 1.5rem 1.25rem;
+    padding: 9px;
+    background: none;
+    color: var(--text2);
+    font-family: var(--sans);
+    font-size: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .reset-btn.visible { display: flex; }
+  .reset-btn:hover { border-color: var(--border2); color: var(--text); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div class="logo-dot"></div>
+    <h1>AutoGen Multi-Agent Simulator</h1>
+  </div>
+  <p>Subject: Large Language Model · UNAIL411 · TAE-I · Gaurav Gaydhane (Roll 67)</p>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('simulator')">Simulator</button>
+  <button class="tab" onclick="switchTab('benchmarks')">Benchmarks</button>
+  <button class="tab" onclick="switchTab('architecture')">Architecture</button>
+</div>
+
+<!-- ════════════════════ SIMULATOR PANEL ════════════════════ -->
+<div id="panel-simulator" class="panel active">
+  <div class="task-section">
+    <div class="section-label">Pick a task to simulate</div>
+    <div class="task-grid">
+      <div class="task-card selected" data-task="sort" onclick="selectTask(this)">
+        <div class="task-icon">🔢</div>
+        <div class="task-name">Sort algorithm</div>
+        <div class="task-desc">Write and verify a merge sort in Python</div>
+      </div>
+      <div class="task-card" data-task="api" onclick="selectTask(this)">
+        <div class="task-icon">🌐</div>
+        <div class="task-name">REST API bug</div>
+        <div class="task-desc">Fix a broken FastAPI endpoint with auth</div>
+      </div>
+      <div class="task-card" data-task="ml" onclick="selectTask(this)">
+        <div class="task-icon">🧠</div>
+        <div class="task-name">ML pipeline</div>
+        <div class="task-desc">Build a scikit-learn training pipeline</div>
+      </div>
+      <div class="task-card" data-task="sql" onclick="selectTask(this)">
+        <div class="task-icon">🗄️</div>
+        <div class="task-name">SQL query</div>
+        <div class="task-desc">Optimise a slow aggregation query</div>
+      </div>
+    </div>
+  </div>
+
+  <button class="run-btn" id="runBtn" onclick="runSimulation()">▶ Run simulation</button>
+
+  <!-- Agents row -->
+  <div class="agents-row" id="agentsRow">
+    <div class="agent-chip" id="chip-proxy"><div class="dot"></div><span>UserProxy</span></div>
+    <div class="agent-chip" id="chip-manager"><div class="dot"></div><span>GroupChatManager</span></div>
+    <div class="agent-chip" id="chip-planner"><div class="dot"></div><span>Planner</span></div>
+    <div class="agent-chip" id="chip-coder"><div class="dot"></div><span>Coder</span></div>
+    <div class="agent-chip" id="chip-critic"><div class="dot"></div><span>Critic</span></div>
+  </div>
+
+  <!-- Progress bar -->
+  <div class="progress-bar-wrap" id="progressWrap">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+
+  <!-- Result banner -->
+  <div class="result-banner" id="resultBanner">
+    ✓ Task complete — all agents reached consensus
+  </div>
+
+  <!-- Chat area -->
+  <div class="chat-scroll">
+    <div class="chat-area" id="chatArea">
+      <div class="empty-chat" id="emptyChatMsg">
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+          <rect x="4" y="8" width="32" height="22" rx="4" stroke="#5a637a" stroke-width="1.5"/>
+          <path d="M12 30L20 36L28 30" stroke="#5a637a" stroke-width="1.5" fill="none"/>
+          <circle cx="14" cy="19" r="2" fill="#5a637a"/>
+          <circle cx="20" cy="19" r="2" fill="#5a637a"/>
+          <circle cx="26" cy="19" r="2" fill="#5a637a"/>
+        </svg>
+        <span>Select a task and run the simulation</span>
+      </div>
+    </div>
+  </div>
+
+  <button class="reset-btn" id="resetBtn" onclick="resetSimulation()">↺ Reset and try another task</button>
+</div>
+
+<!-- ════════════════════ BENCHMARKS PANEL ════════════════════ -->
+<div id="panel-benchmarks" class="panel">
+  <div class="bench-grid">
+    <div class="bench-card">
+      <div class="bench-name" style="color:#5b8af0">
+        MMLU
+        <span class="bench-pill" style="background:#1e2d52;color:#5b8af0">Knowledge breadth</span>
+      </div>
+      <div class="bench-desc">Tests broad world knowledge across 57 subjects via multiple-choice. In AutoGen, high MMLU matters most for the Planner agent that drafts answers before other agents act on them.</div>
+      <div class="bench-bar-row">
+        <div class="bench-bar-bg"><div class="bench-bar-fg" style="width:86%;background:#5b8af0"></div></div>
+        <div class="bench-bar-label" style="color:#5b8af0">86%</div>
+      </div>
+    </div>
+    <div class="bench-card">
+      <div class="bench-name" style="color:#a47cf0">
+        GPQA
+        <span class="bench-pill" style="background:#28194a;color:#a47cf0">Expert reasoning</span>
+      </div>
+      <div class="bench-desc">Graduate-level biology, physics, and chemistry questions crafted to resist web lookup. Predicts reliability of an agent in the final reasoning or synthesis role.</div>
+      <div class="bench-bar-row">
+        <div class="bench-bar-bg"><div class="bench-bar-fg" style="width:53%;background:#a47cf0"></div></div>
+        <div class="bench-bar-label" style="color:#a47cf0">53%</div>
+      </div>
+    </div>
+    <div class="bench-card">
+      <div class="bench-name" style="color:#3dd68c">
+        HumanEval
+        <span class="bench-pill" style="background:#0f3022;color:#3dd68c">Code generation</span>
+      </div>
+      <div class="bench-desc">Functional correctness of Python functions against hidden tests. Central to AutoGen's code-executor loop — the Coder agent writes, runs, and fixes code turn by turn.</div>
+      <div class="bench-bar-row">
+        <div class="bench-bar-bg"><div class="bench-bar-fg" style="width:90%;background:#3dd68c"></div></div>
+        <div class="bench-bar-label" style="color:#3dd68c">90%</div>
+      </div>
+    </div>
+    <div class="bench-card">
+      <div class="bench-name" style="color:#3dd6c8">
+        SWE-bench Verified
+        <span class="bench-pill" style="background:#0f2e2c;color:#3dd6c8">Real-world fixes</span>
+      </div>
+      <div class="bench-desc">Resolving real GitHub issues end-to-end. The strongest proxy for a full AutoGen coding session — multi-file navigation, patch writing, test passing.</div>
+      <div class="bench-bar-row">
+        <div class="bench-bar-bg"><div class="bench-bar-fg" style="width:49%;background:#3dd6c8"></div></div>
+        <div class="bench-bar-label" style="color:#3dd6c8">49%</div>
+      </div>
+    </div>
+    <div class="bench-card">
+      <div class="bench-name" style="color:#f0a03d">
+        TruthfulQA
+        <span class="bench-pill" style="background:#3a2610;color:#f0a03d">Truthfulness</span>
+      </div>
+      <div class="bench-desc">Resistance to popular misconceptions. Directly relevant to the Critic agent's role — detecting hallucinated claims before they leave the conversation loop.</div>
+      <div class="bench-bar-row">
+        <div class="bench-bar-bg"><div class="bench-bar-fg" style="width:72%;background:#f0a03d"></div></div>
+        <div class="bench-bar-label" style="color:#f0a03d">72%</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ ARCHITECTURE PANEL ════════════════════ -->
+<div id="panel-architecture" class="panel">
+  <div class="arch-panel">
+    <div class="section-label" style="margin-bottom:1rem">AutoGen agent roles</div>
+    <div class="arch-node">
+      <div class="arch-icon" style="background:#1e2d52">👤</div>
+      <div class="arch-node-info">
+        <div class="arch-node-name" style="color:#5b8af0">UserProxyAgent</div>
+        <div class="arch-node-desc">Represents the human or task initiator. Can pause the loop for human approval, execute code in a sandbox, and feed results back into the conversation.</div>
+      </div>
+    </div>
+    <div class="arch-node">
+      <div class="arch-icon" style="background:#0f2e2c">🔀</div>
+      <div class="arch-node-info">
+        <div class="arch-node-name" style="color:#3dd6c8">GroupChatManager</div>
+        <div class="arch-node-desc">Coordinates turn order in multi-agent group chats. Decides which agent speaks next and enforces the stop condition to prevent infinite loops.</div>
+      </div>
+    </div>
+    <div class="arch-node">
+      <div class="arch-icon" style="background:#28194a">🗺</div>
+      <div class="arch-node-info">
+        <div class="arch-node-name" style="color:#a47cf0">Planner (AssistantAgent)</div>
+        <div class="arch-node-desc">Reasons about the task, breaks it into steps, and drafts an approach. Relies on high MMLU and GPQA scores for breadth and expert reasoning.</div>
+      </div>
+    </div>
+    <div class="arch-node">
+      <div class="arch-icon" style="background:#0f3022">💻</div>
+      <div class="arch-node-info">
+        <div class="arch-node-name" style="color:#3dd68c">Coder (AssistantAgent)</div>
+        <div class="arch-node-desc">Writes and iteratively fixes code via the built-in executor loop. HumanEval and SWE-bench Verified are the key benchmarks for predicting its real-world output.</div>
+      </div>
+    </div>
+    <div class="arch-node">
+      <div class="arch-icon" style="background:#3a2610">🔍</div>
+      <div class="arch-node-info">
+        <div class="arch-node-name" style="color:#f0a03d">Critic (AssistantAgent)</div>
+        <div class="arch-node-desc">Reviews outputs for errors, hallucinations, and unsupported claims before they are finalised. Acts as an application-level TruthfulQA check.</div>
+      </div>
+    </div>
+    <div style="margin-top:1.25rem;padding:12px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border)">
+      <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Key features</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.7">
+        ● <b style="color:var(--text)">Conversation loop</b> — agents talk until a stop condition is met<br>
+        ● <b style="color:var(--text)">Code executor</b> — auto-runs code, feeds errors back to Coder<br>
+        ● <b style="color:var(--text)">Human-in-the-loop</b> — UserProxy can pause for human approval<br>
+        ● <b style="color:var(--text)">Tool calling</b> — agents can use search, APIs, and file access
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ─── Tab switching ─── */
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+/* ─── Task selection ─── */
+let selectedTask = 'sort';
+function selectTask(el) {
+  if (isRunning) return;
+  document.querySelectorAll('.task-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedTask = el.dataset.task;
+}
+
+/* ─── Simulation scripts ─── */
+const scripts = {
+  sort: [
+    { agent:'proxy',   text:'Please write a correct, well-tested merge sort implementation in Python. Include a test that verifies the output on [3,1,4,1,5,9,2,6].', bench:null },
+    { agent:'manager', text:'Routing task to Planner for initial breakdown.', bench:null },
+    { agent:'planner', text:'Plan: (1) Implement merge sort recursively. (2) Add a unit test. (3) Coder agent handles the code; Critic reviews for edge cases. Known concern: MMLU-level knowledge — merge sort has O(n log n) time complexity and requires O(n) auxiliary space. Handing off.', bench:'MMLU — planning agent draws on algorithmic knowledge breadth' },
+    { agent:'coder',   text:'Writing merge sort now.', bench:null, code:
+`def merge_sort(arr):
+    if len(arr) <= 1:
+        return arr
+    mid = len(arr) // 2
+    left  = merge_sort(arr[:mid])
+    right = merge_sort(arr[mid:])
+    return merge(left, right)
+
+def merge(left, right):
+    result = []
+    i = j = 0
+    while i < len(left) and j < len(right):
+        if left[i] <= right[j]:
+            result.append(left[i]); i += 1
+        else:
+            result.append(right[j]); j += 1
+    result.extend(left[i:])
+    result.extend(right[j:])
+    return result
+
+# Test
+arr = [3, 1, 4, 1, 5, 9, 2, 6]
+print(merge_sort(arr))  # → [1, 1, 2, 3, 4, 5, 6, 9]`
+    , bench:'HumanEval — Coder agent produces functionally correct Python code' },
+    { agent:'proxy',   text:'[Executor] Running code…\n→ Output: [1, 1, 2, 3, 4, 5, 6, 9]\n→ Tests passed ✓', bench:null },
+    { agent:'critic',  text:'Code review complete. Implementation handles duplicates correctly. Edge cases checked: empty list returns [], single-element list returns as-is. No hallucinated library calls. TruthfulQA-equivalent check passed — the claimed O(n log n) complexity is accurate.', bench:'TruthfulQA — Critic validates the complexity claim is not a misconception' },
+    { agent:'proxy',   text:'Accepted. Task complete. TERMINATE', bench:null },
+  ],
+  api: [
+    { agent:'proxy',   text:'This FastAPI endpoint returns 401 on every request even when a valid Bearer token is provided. Fix it.\n\n```python\n@app.get("/secure")\nasync def secure(token: str = Header(None)):\n    if token != SECRET:\n        raise HTTPException(401)\n    return {"ok": True}\n```', bench:null },
+    { agent:'manager', text:'Dispatching to Planner.', bench:null },
+    { agent:'planner', text:'Root cause: FastAPI\'s Header() dependency lowercases header names. "Authorization" becomes "authorization". The token parameter name should be "authorization" or use OAuth2PasswordBearer. Sending to Coder.', bench:'MMLU — Planner\'s framework knowledge prevents the Coder wasting turns on wrong fixes' },
+    { agent:'coder',   text:'Applying the correct fix using FastAPI\'s built-in security utility.', bench:null, code:
+`from fastapi import Depends, HTTPException
+from fastapi.security import OAuth2PasswordBearer
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+@app.get("/secure")
+async def secure(token: str = Depends(oauth2_scheme)):
+    if token != SECRET:
+        raise HTTPException(status_code=401,
+                            detail="Invalid token")
+    return {"ok": True}`
+    , bench:'SWE-bench Verified — fixing real-world framework behaviour, not a toy function' },
+    { agent:'proxy',   text:'[Executor] Integration test with valid token → 200 OK ✓\nWith invalid token → 401 Unauthorized ✓', bench:null },
+    { agent:'critic',  text:'Verified: no security regressions. The fix uses FastAPI\'s documented pattern — not a custom workaround. Claim that "Header() lowercases keys" confirmed against official FastAPI docs. TERMINATE.', bench:'TruthfulQA — Critic confirms the diagnosis is factually accurate before sign-off' },
+  ],
+  ml: [
+    { agent:'proxy',   text:'Build a scikit-learn pipeline that: loads the Iris dataset, scales features, trains a logistic regression, and prints accuracy on a 20% test split.', bench:null },
+    { agent:'manager', text:'Routing to Planner → Coder → Critic.', bench:null },
+    { agent:'planner', text:'Steps: (1) Use train_test_split with random_state=42. (2) Wrap StandardScaler + LogisticRegression in Pipeline. (3) Score on held-out set. No data leakage if scaler is inside the pipeline. Handing to Coder.', bench:'MMLU — Planner flags the data-leakage risk proactively (ML fundamentals breadth)' },
+    { agent:'coder',   text:'Implementing the full pipeline.', bench:null, code:
+`from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import accuracy_score
+
+X, y = load_iris(return_X_y=True)
+X_tr, X_te, y_tr, y_te = train_test_split(
+    X, y, test_size=0.2, random_state=42)
+
+pipe = Pipeline([
+    ('scaler', StandardScaler()),
+    ('clf',    LogisticRegression(max_iter=200))
+])
+pipe.fit(X_tr, y_tr)
+print(f"Accuracy: {accuracy_score(y_te, pipe.predict(X_te)):.3f}")`
+    , bench:'HumanEval — Coder generates a complete, runnable scikit-learn script' },
+    { agent:'proxy',   text:'[Executor] Accuracy: 0.967 ✓', bench:null },
+    { agent:'critic',  text:'No data leakage detected — scaler is correctly inside the pipeline. Accuracy of 96.7% is expected for Iris with logistic regression. No fabricated metric names. TERMINATE.', bench:'TruthfulQA — Critic cross-checks the accuracy figure is plausible, not hallucinated' },
+  ],
+  sql: [
+    { agent:'proxy',   text:'This query takes 8 s on a 10 M row table. Optimise it.\n\n```sql\nSELECT customer_id, SUM(amount)\nFROM orders\nWHERE status = \'completed\'\nGROUP BY customer_id\nHAVING SUM(amount) > 1000;\n```', bench:null },
+    { agent:'manager', text:'Routing to Planner.', bench:null },
+    { agent:'planner', text:'Bottleneck: full table scan on `status`. Fix: (1) Partial index on status=\'completed\'. (2) Cover the index with (customer_id, amount) so the aggregation avoids a heap fetch. (3) HAVING can stay — it can\'t become WHERE since it filters on aggregate. Sending to Coder.', bench:'GPQA — expert-level DB reasoning; the Planner must reason correctly, not just produce plausible SQL' },
+    { agent:'coder',   text:'Creating the optimised index.', bench:null, code:
+`-- Partial covering index
+CREATE INDEX idx_orders_completed
+  ON orders (customer_id, amount)
+  WHERE status = 'completed';
+
+-- Query is unchanged; planner now uses index-only scan
+SELECT customer_id, SUM(amount)
+FROM orders
+WHERE status = 'completed'
+GROUP BY customer_id
+HAVING SUM(amount) > 1000;
+
+-- Verify with EXPLAIN ANALYZE:
+-- Index Only Scan → ~0.3 s  (was 8 s)` 
+    , bench:'SWE-bench Verified — real-world fix involving execution plans and index strategy' },
+    { agent:'proxy',   text:'[Executor] EXPLAIN ANALYZE → Index Only Scan on idx_orders_completed\nActual execution time: 0.31 s ✓ (97% reduction)', bench:null },
+    { agent:'critic',  text:'Index strategy verified. The claim "HAVING can\'t become WHERE on aggregates" is correct. No redundant columns in the index. Estimated gain of ~97% is consistent with the scan change. TERMINATE.', bench:'TruthfulQA — Critic validates the SQL optimisation reasoning is technically sound' },
+  ],
+};
+
+/* ─── Simulation state ─── */
+let isRunning = false;
+let timeouts = [];
+
+function setChipSpeaking(agentId) {
+  document.querySelectorAll('.agent-chip').forEach(c => c.classList.remove('speaking'));
+  const chip = document.getElementById('chip-' + agentId);
+  if (chip) chip.classList.add('speaking');
+}
+
+function appendMessage(step) {
+  const chat = document.getElementById('chatArea');
+  const empty = document.getElementById('emptyChatMsg');
+  if (empty) empty.remove();
+
+  const agentNames = { proxy:'UserProxy', manager:'GroupChatManager', planner:'Planner', coder:'Coder', critic:'Critic' };
+  const benchColors = { MMLU:'#5b8af0', GPQA:'#a47cf0', HumanEval:'#3dd68c', 'SWE-bench Verified':'#3dd6c8', TruthfulQA:'#f0a03d' };
+
+  const div = document.createElement('div');
+  div.className = 'message agent-' + step.agent;
+
+  let codeHtml = step.code ? `<pre>${escHtml(step.code.trim())}</pre>` : '';
+
+  let benchHtml = '';
+  if (step.bench) {
+    const key = Object.keys(benchColors).find(k => step.bench.startsWith(k));
+    const col = key ? benchColors[key] : '#8b93a8';
+    const bg  = key ? col.replace(/^#/, '') : '8b93a8';
+    benchHtml = `<div><span class="benchmark-tag" style="background:${col}22;color:${col};border:1px solid ${col}55">${step.bench}</span></div>`;
+  }
+
+  div.innerHTML = `
+    <div class="msg-header">
+      <div class="msg-agent-dot"></div>
+      ${agentNames[step.agent] || step.agent}
+    </div>
+    <div class="msg-bubble">
+      ${escHtml(step.text).replace(/\n/g,'<br>').replace(/```python([\s\S]*?)```/g,'').replace(/```sql([\s\S]*?)```/g,'')}
+      ${codeHtml}
+      ${benchHtml}
+    </div>
+  `;
+
+  // Inline code blocks from text
+  div.querySelectorAll('pre code').forEach(b => { b.className = ''; });
+  chat.appendChild(div);
+  div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function runSimulation() {
+  if (isRunning) return;
+  isRunning = true;
+
+  const steps = scripts[selectedTask];
+  const total = steps.length;
+
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('progressWrap').classList.add('visible');
+  document.getElementById('chatArea').innerHTML = '';
+
+  let delay = 0;
+  steps.forEach((step, i) => {
+    const t1 = setTimeout(() => {
+      setChipSpeaking(step.agent);
+      document.getElementById('progressBar').style.width = ((i / total) * 90) + '%';
+    }, delay);
+
+    delay += 500;
+
+    const t2 = setTimeout(() => {
+      appendMessage(step);
+      document.getElementById('progressBar').style.width = (((i + 1) / total) * 100) + '%';
+
+      if (i === total - 1) {
+        setTimeout(finishSimulation, 400);
+      }
+    }, delay);
+
+    delay += step.code ? 1800 : 1100;
+    timeouts.push(t1, t2);
+  });
+}
+
+function finishSimulation() {
+  isRunning = false;
+  document.querySelectorAll('.agent-chip').forEach(c => c.classList.remove('speaking'));
+  document.getElementById('resultBanner').classList.add('visible');
+  document.getElementById('resetBtn').classList.add('visible');
+}
+
+function resetSimulation() {
+  timeouts.forEach(clearTimeout);
+  timeouts = [];
+  isRunning = false;
+
+  document.getElementById('runBtn').disabled = false;
+  document.getElementById('progressWrap').classList.remove('visible');
+  document.getElementById('progressBar').style.width = '0%';
+  document.getElementById('resultBanner').classList.remove('visible');
+  document.getElementById('resetBtn').classList.remove('visible');
+  document.querySelectorAll('.agent-chip').forEach(c => c.classList.remove('speaking'));
+  document.getElementById('chatArea').innerHTML = `
+    <div class="empty-chat" id="emptyChatMsg">
+      <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+        <rect x="4" y="8" width="32" height="22" rx="4" stroke="#5a637a" stroke-width="1.5"/>
+        <path d="M12 30L20 36L28 30" stroke="#5a637a" stroke-width="1.5" fill="none"/>
+        <circle cx="14" cy="19" r="2" fill="#5a637a"/>
+        <circle cx="20" cy="19" r="2" fill="#5a637a"/>
+        <circle cx="26" cy="19" r="2" fill="#5a637a"/>
+      </svg>
+      <span>Select a task and run the simulation</span>
+    </div>`;
+}
+</script>
+</body>
+</html>
